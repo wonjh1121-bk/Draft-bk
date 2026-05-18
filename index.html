@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DRAFT AUCTION</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+
+<!-- ✅ Firebase SDK (v9 compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+:root {
+  --bg:#07070f; --s1:#0e0e1c; --s2:#15151f; --bd:#1e1e30;
+  --gold:#fbbf24; --red:#f43f5e; --teal:#10b981; --text:#e2e2f0; --muted:#5555a0;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;
+  background-image:linear-gradient(rgba(251,191,36,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(251,191,36,.04) 1px,transparent 1px);
+  background-size:36px 36px;pointer-events:none;z-index:0}
+
+.wrap{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:16px}
+
+/* ── Header ── */
+header{text-align:center;padding-bottom:16px;border-bottom:1px solid var(--bd);margin-bottom:16px}
+h1{font-family:'Black Han Sans',sans-serif;font-size:clamp(26px,5vw,48px);letter-spacing:4px;
+  background:linear-gradient(135deg,#fbbf24,#fff,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.sub{color:var(--muted);font-size:12px;letter-spacing:2px;margin-top:4px}
+
+/* ── Phase bar ── */
+.bar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  background:var(--s1);border:1px solid var(--bd);border-radius:10px;padding:10px 16px;margin-bottom:16px}
+.bar-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.bar-val{font-family:'Black Han Sans',sans-serif;font-size:17px;color:var(--gold)}
+.bar-btns{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ── Layout ── */
+.cols{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+@media(max-width:820px){.cols{grid-template-columns:1fr}}
+
+/* ── Panel ── */
+.panel{background:var(--s1);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--bd)}
+.pt{font-family:'Black Han Sans',sans-serif;font-size:14px;color:var(--gold);letter-spacing:1px}
+.pb{padding:14px}
+
+/* ── Buttons ── */
+.btn{padding:7px 16px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:13px;transition:all .15s}
+.btn-gold{background:var(--gold);color:#07070f}
+.btn-gold:hover{background:#fcd34d}
+.btn-red{background:var(--red);color:#fff}
+.btn-teal{background:var(--teal);color:#07070f}
+.btn-outline{background:transparent;color:var(--muted);border:1px solid var(--bd)}
+.btn-outline:hover{color:var(--text);border-color:var(--gold)}
+.btn-sm{padding:4px 10px;font-size:12px;border-radius:6px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Inputs ── */
+input[type=text],input[type=number]{
+  background:var(--s2);border:1px solid var(--bd);border-radius:8px;
+  color:var(--text);padding:7px 12px;font-family:'Noto Sans KR',sans-serif;
+  font-size:13px;outline:none;transition:border-color .2s}
+input:focus{border-color:var(--gold)}
+.input-row{display:flex;gap:8px;margin-bottom:10px}
+.input-row input[type=text]{flex:1}
+.input-row input[type=number]{width:80px}
+.setup-label{font-size:10px;letter-spacing:1.5px;color:var(--muted);margin-bottom:6px;text-transform:uppercase}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:4px}
+.tab{padding:5px 12px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;
+  border:1px solid transparent;color:var(--muted);transition:all .15s;font-family:'Noto Sans KR',sans-serif}
+.tab.active{background:var(--s2);border-color:var(--bd);color:var(--gold)}
+
+/* ── Team card ── */
+.team-card{display:flex;align-items:center;gap:10px;
+  background:var(--s2);border:1px solid var(--bd);
+  border-radius:10px;padding:10px 12px;margin-bottom:8px;transition:all .2s}
+.team-card.leading{border-color:var(--red);background:rgba(244,63,94,.06)}
+.team-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-family:'Black Han Sans',sans-serif;font-size:15px;flex-shrink:0;border-width:2px;border-style:solid}
+.team-info{flex:1;min-width:0}
+.team-name{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.team-budget{font-size:13px;font-weight:600}
+.team-count{font-size:11px;color:var(--muted)}
+
+/* ── Player list ── */
+.player-item{display:flex;align-items:center;gap:8px;padding:8px 12px;
+  border-radius:8px;margin-bottom:5px;background:var(--s2);
+  border:1px solid var(--bd);cursor:pointer;transition:all .15s}
+.player-item:hover{border-color:var(--gold)}
+.player-item.drafted{opacity:.4;cursor:default}
+.player-item.drafted:hover{border-color:var(--bd)}
+.player-item.on-auction{border-color:var(--red);background:rgba(244,63,94,.08);cursor:default}
+.player-num{font-size:12px;color:var(--muted);width:20px;text-align:center}
+.player-name{flex:1;font-size:14px;font-weight:500}
+.player-status{font-size:12px;font-weight:700}
+
+/* ── Auction stage ── */
+.stage{background:var(--s1);border:1px solid var(--bd);border-radius:14px;
+  padding:24px 20px;text-align:center;margin-bottom:14px;transition:all .4s}
+.stage.live{border-color:var(--red);box-shadow:0 0 40px rgba(244,63,94,.15)}
+.stage-sub{font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+.stage-name{font-family:'Black Han Sans',sans-serif;font-size:clamp(28px,5vw,46px);letter-spacing:2px;margin-bottom:2px}
+.stage-idx{color:var(--muted);font-size:13px;margin-bottom:18px}
+.lead-badge{display:inline-flex;align-items:center;gap:6px;
+  background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.4);
+  border-radius:20px;padding:4px 14px;font-size:12px;color:#f87171;font-weight:700;margin-bottom:12px}
+.blink{width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block;animation:blink 1s infinite}
+.bid-label{font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:4px}
+.bid-price{font-family:'Black Han Sans',sans-serif;font-size:54px;color:var(--gold);line-height:1;margin-bottom:16px}
+.bid-price span{font-size:22px}
+.bid-controls{display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:14px}
+.bid-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.quick-bids{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.quick-btn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;
+  cursor:pointer;font-family:'Noto Sans KR',sans-serif;border-width:1px;border-style:solid;transition:all .15s}
+.stage-actions{display:flex;gap:8px;justify-content:center}
+
+/* ── Bid log ── */
+.bid-log{max-height:280px;overflow-y:auto}
+.log-entry{display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-radius:7px;margin-bottom:4px;border:1px solid transparent;transition:background .1s}
+.log-entry.top{background:rgba(251,191,36,.05);border-color:rgba(251,191,36,.15)}
+.log-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.log-team{flex:1;font-size:13px;font-weight:700}
+.log-amt{font-family:'Black Han Sans',sans-serif;color:var(--gold)}
+.log-ts{font-size:11px;color:var(--muted)}
+
+/* ── Result ── */
+.result-card{background:var(--s2);border-radius:10px;padding:12px;margin-bottom:10px;border-width:1px;border-style:solid}
+.result-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--bd)}
+.member-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;
+  display:inline-flex;align-items:center;gap:4px;border-width:1px;border-style:solid}
+.chip-cost{font-size:10px;color:var(--muted)}
+
+/* ── Role chooser ── */
+.role-screen{max-width:440px;margin:60px auto;padding:16px}
+.role-btn{display:flex;align-items:center;gap:10px;width:100%;margin-bottom:8px;
+  padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:14px;
+  font-family:'Noto Sans KR',sans-serif;border-width:1px;border-style:solid;transition:all .15s}
+
+/* ── Misc ── */
+.empty{text-align:center;color:var(--muted);padding:20px;font-size:13px}
+.badge{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;border-width:1px;border-style:solid}
+.hidden{display:none!important}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);display:inline-block;margin-right:4px}
+.sync-dot.off{background:var(--muted)}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(10px);
+  background:var(--s1);border-radius:10px;padding:10px 22px;font-size:14px;font-weight:600;
+  z-index:999;pointer-events:none;white-space:nowrap;opacity:0;transition:all .3s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- ════════════ ROLE CHOOSER ════════════ -->
+<div id="roleScreen" class="wrap">
+  <div class="role-screen">
+    <header><h1>⚔ DRAFT AUCTION</h1><div class="sub">역할을 선택하세요</div></header>
+    <div class="panel">
+      <div class="pb">
+        <div class="setup-label" style="margin-bottom:10px">방장 (설정 권한)</div>
+        <button class="btn btn-gold" style="width:100%;font-size:15px;padding:12px;margin-bottom:16px"
+          onclick="joinAs('admin')">👑 방장으로 참여</button>
+        <div class="setup-label" style="margin-bottom:10px">팀장으로 참여</div>
+        <div id="teamJoinList"><div class="empty">방장이 팀을 만든 후 참여할 수 있습니다</div></div>
+        <div style="color:var(--muted);font-size:11px;margin-top:14px;text-align:center">
+          참가자·관전자는 방장 또는 아무 팀으로 입장하세요
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ MAIN APP ════════════ -->
+<div id="appScreen" class="wrap hidden">
+  <header>
+    <h1>⚔ DRAFT AUCTION</h1>
+    <div class="sub" id="myRoleLabel"></div>
+  </header>
+
+  <!-- Phase bar -->
+  <div class="bar">
+    <div>
+      <div class="bar-label">현재 단계</div>
+      <div class="bar-val" id="phaseLabel">설정</div>
+    </div>
+    <div class="bar-btns" id="barBtns"></div>
+  </div>
+
+  <div class="cols">
+    <!-- LEFT -->
+    <div>
+      <!-- Setup panel (admin + setup) -->
+      <div class="panel" id="setupPanel">
+        <div class="ph">
+          <div class="pt">⚙ 설정</div>
+          <div class="tabs">
+            <div class="tab active" onclick="switchSetupTab('teams',this)">팀장</div>
+            <div class="tab" onclick="switchSetupTab('players',this)">참가자</div>
+          </div>
+        </div>
+        <div class="pb">
+          <!-- Teams -->
+          <div id="setupTeams">
+            <div class="setup-label">팀당 초기 예산</div>
+            <div class="input-row" style="margin-bottom:14px">
+              <input type="number" id="budgetInput" value="100" min="1" style="width:80px">
+              <span style="color:var(--muted);font-size:13px;align-self:center">P</span>
+            </div>
+            <div class="setup-label">팀장 추가</div>
+            <div class="input-row">
+              <input type="text" id="teamNameInput" placeholder="팀장 이름">
+              <button class="btn btn-gold btn-sm" onclick="addTeam()">추가</button>
+            </div>
+            <div id="teamSetupList"></div>
+          </div>
+          <!-- Players -->
+          <div id="setupPlayers" class="hidden">
+            <div class="setup-label">참가자 추가</div>
+            <div class="input-row">
+              <input type="text" id="playerNameInput" placeholder="참가자 이름">
+              <button class="btn btn-gold btn-sm" onclick="addPlayer()">추가</button>
+            </div>
+            <div id="playerSetupList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Budget panel (auction/done) -->
+      <div class="panel hidden" id="budgetPanel">
+        <div class="ph"><div class="pt">💰 팀 예산 현황</div></div>
+        <div class="pb" id="budgetList"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div>
+      <!-- Auction stage -->
+      <div class="stage" id="auctionStage">
+        <div id="stageContent">
+          <div class="empty" style="padding:40px 0">
+            <div style="font-size:40px;margin-bottom:8px">🎯</div>
+            설정을 완료하고 경매를 시작하세요
+          </div>
+        </div>
+      </div>
+
+      <!-- Players / Log / Results -->
+      <div class="panel">
+        <div class="ph">
+          <div class="pt" id="rightPanelTitle">📋 참가자 목록</div>
+          <div class="tabs">
+            <div class="tab active" onclick="switchRightTab('players',this)">참가자</div>
+            <div class="tab" onclick="switchRightTab('log',this)">로그</div>
+            <div class="tab" onclick="switchRightTab('results',this)">결과</div>
+          </div>
+        </div>
+        <div class="pb">
+          <div id="rightPlayers"></div>
+          <div id="rightLog" class="hidden bid-log"></div>
+          <div id="rightResults" class="hidden"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════
+// 🔥 FIREBASE CONFIG — firebase-config.js에서 교체
+// ══════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyA3dLoGKs_rRT_of3qPxgQriucKO8pXssI",
+  authDomain:        "draft-99880.firebaseapp.com",
+  databaseURL:       "https://draft-99880-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "draft-99880",
+  storageBucket:     "draft-99880.firebasestorage.app",
+  messagingSenderId: "220036315586",
+  appId:             "1:220036315586:web:efba9c5f990560cb917e5b"
+};
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db   = firebase.database();
+const ROOT = db.ref("draftAuction");
+
+// ══════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════
+const PALETTES = [
+  {bg:"#1a0a00",ring:"#f59e0b",text:"#fcd34d"},
+  {bg:"#0a001a",ring:"#8b5cf6",text:"#c4b5fd"},
+  {bg:"#001a0a",ring:"#10b981",text:"#6ee7b7"},
+  {bg:"#001018",ring:"#38bdf8",text:"#7dd3fc"},
+  {bg:"#1a000a",ring:"#f43f5e",text:"#fda4af"},
+  {bg:"#0a1000",ring:"#84cc16",text:"#bef264"},
+];
+
+let gs = null;       // game state from Firebase
+let myRole = null;   // "admin" | number(teamIdx)
+
+function blankState() {
+  return { phase:"setup", teams:[], players:[], auction:null };
+}
+
+// ══════════════════════════════════════════════
+// Firebase r/w
+// ══════════════════════════════════════════════
+function push(next) {
+  ROOT.set(next);
+}
+
+ROOT.on("value", snap => {
+  const val = snap.val();
+  gs = val || blankState();
+  if (!val) ROOT.set(blankState());
+  render();
+});
+
+// ══════════════════════════════════════════════
+// Role
+// ══════════════════════════════════════════════
+function joinAs(role) {
+  myRole = role;
+  document.getElementById("roleScreen").classList.add("hidden");
+  document.getElementById("appScreen").classList.remove("hidden");
+  render();
+}
+
+function renderRoleScreen() {
+  if (!gs) return;
+  const list = document.getElementById("teamJoinList");
+  if (!gs.teams || gs.teams.length === 0) {
+    list.innerHTML = '<div class="empty">방장이 팀을 만든 후 참여할 수 있습니다</div>';
+    return;
+  }
+  list.innerHTML = gs.teams.map((t,i) => `
+    <button class="role-btn" onclick="joinAs(${i})"
+      style="background:${t.palette.ring}15;border-color:${t.palette.ring}55;color:${t.palette.text}">
+      <div class="team-avatar" style="background:${t.palette.bg};color:${t.palette.text};border-color:${t.palette.ring};width:30px;height:30px;font-size:13px">${t.name[0]}</div>
+      ${t.name} (${t.remaining}P 보유)
+    </button>
+  `).join("");
+}
+
+// ══════════════════════════════════════════════
+// Setup Tab
+// ══════════════════════════════════════════════
+function switchSetupTab(tab, el) {
+  document.querySelectorAll("#setupPanel .tab").forEach(t=>t.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("setupTeams").classList.toggle("hidden", tab!=="teams");
+  document.getElementById("setupPlayers").classList.toggle("hidden", tab!=="players");
+}
+
+function switchRightTab(tab, el) {
+  document.querySelectorAll(".panel:last-child .tab").forEach(t=>t.classList.remove("active"));
+  el.classList.add("active");
+  document.getElementById("rightPlayers").classList.toggle("hidden", tab!=="players");
+  document.getElementById("rightLog").classList.toggle("hidden", tab!=="log");
+  document.getElementById("rightResults").classList.toggle("hidden", tab!=="results");
+  const titles = {players:"📋 참가자 목록", log:"📜 입찰 로그", results:"🏆 결과"};
+  document.getElementById("rightPanelTitle").textContent = titles[tab];
+}
+
+// ══════════════════════════════════════════════
+// Admin actions
+// ══════════════════════════════════════════════
+function addTeam() {
+  const name = document.getElementById("teamNameInput").value.trim();
+  if (!name) return;
+  const teams = gs.teams || [];
+  if (teams.find(t=>t.name===name)) { showToast("이미 있는 팀장 이름입니다","red"); return; }
+  const budget = parseInt(document.getElementById("budgetInput").value)||100;
+  const palette = PALETTES[teams.length % PALETTES.length];
+  push({...gs, teams:[...teams,{name,budget,remaining:budget,members:[],palette}]});
+  document.getElementById("teamNameInput").value="";
+}
+
+function removeTeam(i) {
+  const teams=(gs.teams||[]).filter((_,idx)=>idx!==i);
+  push({...gs,teams});
+}
+
+function addPlayer() {
+  const name = document.getElementById("playerNameInput").value.trim();
+  if (!name) return;
+  const players = gs.players || [];
+  if (players.find(p=>p.name===name)) { showToast("이미 있는 참가자입니다","red"); return; }
+  push({...gs, players:[...players,{name,drafted:false,teamIdx:null,cost:0}]});
+  document.getElementById("playerNameInput").value="";
+}
+
+function removePlayer(i) {
+  const players=(gs.players||[]).filter((_,idx)=>idx!==i);
+  push({...gs,players});
+}
+
+function startAuction() {
+  const teams=gs.teams||[], players=gs.players||[];
+  if (teams.length<2) { showToast("팀장이 2명 이상 필요합니다","red"); return; }
+  if (players.length<1) { showToast("참가자가 1명 이상 필요합니다","red"); return; }
+  const firstIdx = players.findIndex(p=>!p.drafted);
+  const auction = firstIdx>=0 ? {playerIdx:firstIdx,currentBid:1,leadTeamIdx:null,log:[]} : null;
+  push({...gs, phase:"auction", auction});
+  showToast("경매 시작!","gold");
+}
+
+function startAuctionFor(playerIdx) {
+  const cur = gs;
+  if (cur.auction && cur.players[cur.auction.playerIdx] && !cur.players[cur.auction.playerIdx].drafted) {
+    showToast("현재 경매를 먼저 낙찰하세요","red"); return;
+  }
+  push({...cur, auction:{playerIdx,currentBid:1,leadTeamIdx:null,log:[]}});
+  showToast(`${cur.players[playerIdx].name} 경매 시작!`,"gold");
+}
+
+function placeBid(teamIdx, amount) {
+  const cur = gs;
+  if (!cur.auction) return;
+  const team = cur.teams[teamIdx];
+  const newBid = amount != null ? amount : cur.auction.currentBid + 1;
+  if (newBid <= cur.auction.currentBid) { showToast("현재 입찰가보다 높아야 합니다","red"); return; }
+  if (team.remaining < newBid) { showToast(`예산 부족 (${team.remaining}P)`,"red"); return; }
+  const ts = new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  const entry = {team:team.name,amount:newBid,palette:team.palette,ts};
+  const log = [entry,...(cur.auction.log||[])].slice(0,50);
+  push({...cur, auction:{...cur.auction,currentBid:newBid,leadTeamIdx:teamIdx,log}});
+  showToast(`${team.name}: ${newBid}P 입찰!`,"gold");
+}
+
+function placeBidByInput() {
+  const val = parseInt(document.getElementById("bidAmtInput").value);
+  if (!val || isNaN(val)) { showToast("금액을 입력하세요","red"); return; }
+  showTeamModal(val);
+}
+
+function myBid() {
+  if (typeof myRole !== "number" || !gs.auction) return;
+  const val = parseInt(document.getElementById("myBidInput")?.value);
+  if (val && val > gs.auction.currentBid) { placeBid(myRole, val); }
+  else { placeBid(myRole, gs.auction.currentBid+1); }
+  const inp = document.getElementById("myBidInput");
+  if (inp) inp.value="";
+}
+
+function confirmSold() {
+  const cur = gs;
+  if (!cur.auction || cur.auction.leadTeamIdx == null) { showToast("입찰자가 없습니다","red"); return; }
+  const {playerIdx,currentBid,leadTeamIdx} = cur.auction;
+  const players = (cur.players||[]).map((p,i)=>
+    i===playerIdx ? {...p,drafted:true,teamIdx:leadTeamIdx,cost:currentBid} : p);
+  const teams = (cur.teams||[]).map((t,i)=>
+    i===leadTeamIdx
+      ? {...t,remaining:t.remaining-currentBid,members:[...(t.members||[]),{name:cur.players[playerIdx].name,cost:currentBid}]}
+      : t);
+  const remaining = players.filter(p=>!p.drafted);
+  const nextIdx = players.findIndex(p=>!p.drafted);
+  const auction = remaining.length>0 && nextIdx>=0
+    ? {playerIdx:nextIdx,currentBid:1,leadTeamIdx:null,log:[]}
+    : null;
+  const phase = remaining.length===0 ? "done" : "auction";
+  push({...cur,players,teams,auction,phase});
+  showToast(`🏆 ${cur.players[playerIdx].name} → ${cur.teams[leadTeamIdx].name} (${currentBid}P)`,"gold");
+}
+
+function skipPlayer() {
+  push({...gs,auction:null});
+}
+
+function resetAll() {
+  if (!confirm("모든 데이터를 초기화할까요?")) return;
+  push(blankState());
+  showToast("초기화 완료");
+}
+
+// ══════════════════════════════════════════════
+// Team modal for custom bid amount
+// ══════════════════════════════════════════════
+function showTeamModal(amount) {
+  const old = document.getElementById("teamModal");
+  if (old) old.remove();
+  const div = document.createElement("div");
+  div.id = "teamModal";
+  div.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center";
+  div.innerHTML=`
+    <div style="background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:24px;min-width:280px;text-align:center">
+      <div style="font-family:'Black Han Sans',sans-serif;font-size:20px;color:var(--gold);margin-bottom:4px">${amount}P 입찰</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">입찰할 팀을 선택하세요</div>
+      <div>${(gs.teams||[]).map((t,i)=>`
+        <button onclick="doBid(${i},${amount})" style="
+          display:flex;align-items:center;gap:8px;width:100%;margin-bottom:8px;padding:10px 14px;
+          border-radius:8px;cursor:pointer;border:1px solid ${t.palette.ring}55;
+          background:${t.palette.ring}15;color:${t.palette.text};
+          font-family:'Noto Sans KR',sans-serif;font-weight:700;font-size:13px">
+          <div class="team-avatar" style="background:${t.palette.bg};color:${t.palette.text};border-color:${t.palette.ring};width:28px;height:28px;font-size:12px">${t.name[0]}</div>
+          ${t.name} (${t.remaining}P 보유)
+        </button>`).join("")}</div>
+      <button onclick="document.getElementById('teamModal').remove()" class="btn btn-outline btn-sm" style="margin-top:4px">취소</button>
+    </div>`;
+  div.onclick = e => { if(e.target===div) div.remove(); };
+  document.body.appendChild(div);
+}
+
+function doBid(teamIdx,amount) {
+  document.getElementById("teamModal")?.remove();
+  placeBid(teamIdx,amount);
+}
+
+// ══════════════════════════════════════════════
+// Render
+// ══════════════════════════════════════════════
+function render() {
+  if (!gs) return;
+  renderRoleScreen();
+  if (myRole===null) return;
+
+  const isAdmin = myRole==="admin";
+  const myTeamIdx = typeof myRole==="number" ? myRole : null;
+  const teams = gs.teams||[];
+  const players = gs.players||[];
+  const auction = gs.auction;
+
+  // role label
+  document.getElementById("myRoleLabel").innerHTML =
+    `${isAdmin?"👑 방장 모드":`🎯 ${teams[myRole]?.name||""} 팀장 모드`}
+     &nbsp;·&nbsp; <span class="sync-dot"></span> 실시간 동기화`;
+
+  // phase label
+  const phaseMap = {setup:"설정",auction:"경매 진행중",done:"🎉 경매 완료"};
+  document.getElementById("phaseLabel").textContent = phaseMap[gs.phase]||gs.phase;
+
+  // bar buttons
+  const bar = document.getElementById("barBtns");
+  bar.innerHTML="";
+  if (isAdmin) {
+    if (gs.phase==="setup") addBtn(bar,"btn-gold","경매 시작 →","startAuction()");
+    if (gs.phase==="auction" && auction) addBtn(bar,"btn-red","🏆 낙찰 확정","confirmSold()");
+    addBtn(bar,"btn-outline btn-sm","🔄 초기화","resetAll()");
+  }
+  addBtn(bar,"btn-outline btn-sm","역할 변경","changeRole()");
+
+  // panels visibility
+  const inSetup = isAdmin && gs.phase==="setup";
+  document.getElementById("setupPanel").classList.toggle("hidden",!inSetup);
+  document.getElementById("budgetPanel").classList.toggle("hidden",gs.phase==="setup");
+
+  // setup lists
+  if (inSetup) {
+    // team setup list
+    const tl = document.getElementById("teamSetupList");
+    tl.innerHTML = teams.length===0
+      ? '<div class="empty">팀장을 추가하세요</div>'
+      : teams.map((t,i)=>`
+        <div class="team-card">
+          <div class="team-avatar" style="background:${t.palette.bg};color:${t.palette.text};border-color:${t.palette.ring}">${t.name[0]}</div>
+          <div class="team-info">
+            <div class="team-name">${t.name}</div>
+            <div class="team-budget" style="color:${t.palette.text}">💰 ${t.remaining}P</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="removeTeam(${i})">✕</button>
+        </div>`).join("");
+    // player setup list
+    const pl = document.getElementById("playerSetupList");
+    pl.innerHTML = players.length===0
+      ? '<div class="empty">참가자를 추가하세요</div>'
+      : players.map((p,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--s2);border-radius:8px;margin-bottom:5px;border:1px solid var(--bd)">
+          <div class="player-num">${i+1}</div>
+          <div class="player-name">${p.name}</div>
+          <button class="btn btn-outline btn-sm" onclick="removePlayer(${i})">✕</button>
+        </div>`).join("");
+  }
+
+  // budget panel
+  if (gs.phase!=="setup") {
+    document.getElementById("budgetList").innerHTML = teams.map((t,i)=>`
+      <div class="team-card ${auction?.leadTeamIdx===i?"leading":""}">
+        <div class="team-avatar" style="background:${t.palette.bg};color:${t.palette.text};border-color:${t.palette.ring}">${t.name[0]}</div>
+        <div class="team-info">
+          <div class="team-name">${t.name}</div>
+          <div class="team-budget" style="color:${t.palette.text}">💰 ${t.remaining}P</div>
+          <div class="team-count">🙋 ${(t.members||[]).length}명</div>
+        </div>
+        ${isAdmin&&auction?`<button class="btn btn-sm" style="background:${t.palette.ring}20;color:${t.palette.text};border:1px solid ${t.palette.ring}55" onclick="placeBid(${i})">+1P</button>`:""}
+      </div>`).join("");
+  }
+
+  // auction stage
+  renderStage(auction, teams, players, isAdmin, myTeamIdx);
+
+  // right panel
+  renderRightPlayers(players, teams, auction, isAdmin);
+  renderBidLog(auction);
+  renderResults(teams);
+}
+
+function addBtn(parent,cls,text,onclick) {
+  const b=document.createElement("button");
+  b.className=`btn ${cls}`;
+  b.textContent=text;
+  b.setAttribute("onclick",onclick);
+  parent.appendChild(b);
+}
+
+function renderStage(auction, teams, players, isAdmin, myTeamIdx) {
+  const stage=document.getElementById("auctionStage");
+  const content=document.getElementById("stageContent");
+
+  if (gs.phase==="setup") {
+    stage.className="stage";
+    content.innerHTML=`<div class="empty" style="padding:40px 0"><div style="font-size:40px;margin-bottom:8px">🎯</div>설정을 완료하고 경매를 시작하세요</div>`;
+    return;
+  }
+  if (gs.phase==="done") {
+    stage.className="stage";
+    content.innerHTML=`<div class="empty" style="padding:40px 0"><div style="font-size:40px;margin-bottom:8px">🎉</div><div style="font-family:'Black Han Sans',sans-serif;font-size:24px;color:var(--gold);margin-bottom:6px">경매 완료!</div><div>모든 참가자 드래프트가 완료됐습니다</div></div>`;
+    return;
+  }
+  if (!auction) {
+    stage.className="stage";
+    content.innerHTML=`<div class="empty" style="padding:40px 0"><div style="font-size:40px;margin-bottom:8px">⏸</div>${isAdmin?"참가자 목록에서 경매할 선수를 클릭하세요":"방장이 다음 경매를 시작할 때까지 기다려주세요"}</div>`;
+    return;
+  }
+
+  const curPlayer = players[auction.playerIdx];
+  const leadTeam = auction.leadTeamIdx!=null ? teams[auction.leadTeamIdx] : null;
+  stage.className="stage live";
+
+  const myTeam = myTeamIdx!=null ? teams[myTeamIdx] : null;
+  const canBid = myTeamIdx!=null;
+
+  content.innerHTML=`
+    <div class="stage-sub">🔴 LIVE AUCTION</div>
+    <div class="stage-name">${curPlayer?.name||""}</div>
+    <div class="stage-idx">#${auction.playerIdx+1} 참가자</div>
+    ${leadTeam
+      ? `<div class="lead-badge"><span class="blink"></span>${leadTeam.name} 최고 입찰</div>`
+      : `<div style="color:var(--muted);margin-bottom:12px;font-size:13px">아직 입찰자 없음</div>`}
+    <div class="bid-label">현재 입찰가</div>
+    <div class="bid-price">${auction.currentBid}<span>P</span></div>
+
+    ${canBid ? `
+    <div class="bid-controls">
+      <div class="bid-row">
+        <button class="btn btn-red" onclick="placeBid(${myTeamIdx})">
+          +1P 입찰 (${myTeam?.remaining||0}P 보유)
+        </button>
+      </div>
+      <div class="bid-row">
+        <input type="number" id="myBidInput" placeholder="${auction.currentBid+1}" style="width:100px;text-align:center;font-size:16px;font-weight:700">
+        <button class="btn btn-gold" onclick="myBid()">직접 입찰</button>
+      </div>
+    </div>` : ""}
+
+    ${isAdmin ? `
+    <div class="quick-bids">
+      ${teams.map((t,i)=>`
+        <button class="quick-btn" onclick="placeBid(${i})"
+          style="background:${t.palette.ring}20;color:${t.palette.text};border-color:${t.palette.ring}55">
+          ${t.name} +1P
+        </button>`).join("")}
+    </div>
+    <div class="bid-row">
+      <input type="number" id="bidAmtInput" placeholder="직접 금액" style="width:100px;text-align:center">
+      <button class="btn btn-outline" onclick="placeBidByInput()">금액 입찰</button>
+    </div>
+    <div class="stage-actions" style="margin-top:14px">
+      <button class="btn btn-gold" onclick="confirmSold()" ${!leadTeam?"disabled":""}>🏆 낙찰 확정</button>
+      <button class="btn btn-outline" onclick="skipPlayer()">⏭ 건너뛰기</button>
+    </div>` : ""}
+  `;
+}
+
+function renderRightPlayers(players, teams, auction, isAdmin) {
+  const el=document.getElementById("rightPlayers");
+  if (!players.length) { el.innerHTML='<div class="empty">참가자를 추가하세요</div>'; return; }
+  el.innerHTML = players.map((p,i)=>{
+    const isAuction = auction?.playerIdx===i;
+    const clickable = isAdmin && gs.phase==="auction" && !p.drafted && !isAuction;
+    const tp = p.teamIdx!=null ? teams[p.teamIdx]?.palette : null;
+    const statusHtml = p.drafted
+      ? `<span class="player-status" style="color:${tp?.text||"#fff"}">${teams[p.teamIdx]?.name||"?"}팀 (${p.cost}P)</span>`
+      : isAuction
+        ? `<span class="player-status" style="color:var(--red)">🔥 경매중</span>`
+        : `<span class="player-status" style="color:var(--muted)">대기중</span>`;
+    return `
+      <div class="player-item ${p.drafted?"drafted":""} ${isAuction?"on-auction":""}"
+        ${clickable?`onclick="startAuctionFor(${i})" title="클릭해서 경매 시작"`:""}>
+        <div class="player-num">${i+1}</div>
+        <div class="player-name">${p.name}</div>
+        ${statusHtml}
+      </div>`;
+  }).join("");
+}
+
+function renderBidLog(auction) {
+  const el=document.getElementById("rightLog");
+  const log=auction?.log||[];
+  if (!log.length) { el.innerHTML='<div class="empty">입찰 기록이 없습니다</div>'; return; }
+  el.innerHTML = log.map((l,i)=>`
+    <div class="log-entry ${i===0?"top":""}">
+      <div class="log-dot" style="background:${l.palette?.ring||"#fbbf24"}"></div>
+      <div class="log-team" style="color:${l.palette?.text||"#fbbf24"}">${l.team}</div>
+      <div class="log-amt">${l.amount}P</div>
+      <div class="log-ts">${l.ts}</div>
+    </div>`).join("");
+}
+
+function renderResults(teams) {
+  const el=document.getElementById("rightResults");
+  if (!teams.length) { el.innerHTML='<div class="empty">결과가 없습니다</div>'; return; }
+  el.innerHTML = teams.map(t=>`
+    <div class="result-card" style="border-color:${t.palette.ring}33">
+      <div class="result-hdr">
+        <div class="team-avatar" style="background:${t.palette.bg};color:${t.palette.text};border-color:${t.palette.ring}">${t.name[0]}</div>
+        <div style="flex:1">
+          <div style="font-weight:700">${t.name}</div>
+          <div style="font-size:11px;color:var(--muted)">사용 ${t.budget-(t.remaining||0)}P · 남은 ${t.remaining}P</div>
+        </div>
+        <div class="badge" style="background:${t.palette.ring}22;color:${t.palette.text};border-color:${t.palette.ring}55">${(t.members||[]).length}명</div>
+      </div>
+      <div class="member-chips">
+        ${(t.members||[]).length===0
+          ? '<span style="color:var(--muted);font-size:12px">아직 없음</span>'
+          : (t.members||[]).map(m=>`
+            <div class="chip" style="background:${t.palette.ring}20;color:${t.palette.text};border-color:${t.palette.ring}55">
+              ${m.name}<span class="chip-cost">${m.cost}P</span>
+            </div>`).join("")}
+      </div>
+    </div>`).join("");
+}
+
+function changeRole() {
+  myRole=null;
+  document.getElementById("roleScreen").classList.remove("hidden");
+  document.getElementById("appScreen").classList.add("hidden");
+}
+
+// ══════════════════════════════════════════════
+// Toast
+// ══════════════════════════════════════════════
+let _toastTimer;
+function showToast(msg, kind="gold") {
+  const el=document.getElementById("toast");
+  const colors={gold:"var(--gold)",red:"var(--red)",teal:"var(--teal)"};
+  el.textContent=msg;
+  el.style.color=colors[kind]||colors.gold;
+  el.style.borderColor=(colors[kind]||colors.gold).replace("var(","").replace(")","");
+  el.style.border=`1px solid ${colors[kind]||colors.gold}`;
+  el.classList.add("show");
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>el.classList.remove("show"),2500);
+}
+
+// keyboard shortcuts
+document.addEventListener("keydown", e=>{
+  if (e.key==="Enter") {
+    if (document.activeElement?.id==="teamNameInput") addTeam();
+    if (document.activeElement?.id==="playerNameInput") addPlayer();
+    if (document.activeElement?.id==="myBidInput") myBid();
+  }
+});
+</script>
+</body>
+</html>
